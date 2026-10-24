@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/approvals" className="text-neutral-600 hover:text-neutral-900">Approvals</Link>
               <Link href="/audit" className="text-neutral-600 hover:text-neutral-900">Audit log</Link>
               <Link href="/governance" className="font-medium text-blue-700 hover:text-blue-900">Governance</Link>
+              <Link href="/builder" className="font-medium text-blue-700 hover:text-blue-900">App builder</Link>
             </nav>
             <div className="flex items-center gap-2">
               <span className="tag-role">{actor.role}</span>

@@ -56,11 +56,20 @@ export const manifestSchema = z.object({
   writes: z
     .record(
       z.string(),
-      z.object({
-        tables: z.record(z.string(), z.array(z.string())).default({}),
-        endpoints: z.array(z.string()).default([]),
-        via_action: z.string(),
-      }),
+      z
+        .object({
+          tables: z.record(z.string(), z.array(z.string())).default({}),
+          endpoints: z.array(z.string()).default([]),
+          via_action: z.string().optional(),
+          via_actions: z.array(z.string()).default([]),
+        })
+        .transform((w) => ({
+          tables: w.tables,
+          endpoints: w.endpoints,
+          // one or many actions may own this write; everything else is refused
+          via_actions: Array.from(new Set([...(w.via_action ? [w.via_action] : []), ...w.via_actions])),
+        }))
+        .refine((w) => w.via_actions.length > 0, { message: "writes need via_action or via_actions" }),
     )
     .default({}),
   actions: z.record(z.string(), actionSchema).default({}),

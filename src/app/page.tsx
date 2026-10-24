@@ -24,7 +24,7 @@ export default function Home() {
               <div className="text-xs text-neutral-500">owner: {m.owner}</div>
               <div className="text-sm">
                 reads {Object.entries(m.reads).map(([r, v]) => `${r} (${Object.keys(v.tables).length} tables${v.endpoints.length ? `, ${v.endpoints.length} endpoints` : ""})`).join(", ")}
-                <br />writes {Object.entries(m.writes).map(([r, v]) => `${r} via ${v.via_action}`).join(", ") || "nothing"}
+                <br />writes {Object.entries(m.writes).map(([r, v]) => `${r} via ${v.via_actions.join("/")}`).join(", ") || "nothing"}
                 <br />actions {Object.keys(m.actions).map((a) => <span key={a} className="tag mr-1">{a}</span>)}
               </div>
             </div>

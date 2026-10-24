@@ -1,3 +1,5 @@
+> Superseded by [`AGENTS.md`](../AGENTS.md) (short contract) and [`BUILDING_APPS.md`](BUILDING_APPS.md) (full reference). The scaffolder `npm run new-app` and the `/builder` page replace the manual steps below; kept for history.
+
 # Playbook: build a new internal tool on the platform
 
 Input: a capability manifest at `src/apps/<app>/manifest.yaml`, written and reviewed by a human

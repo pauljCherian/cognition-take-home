@@ -22,3 +22,15 @@ Demo script
 5. Switch to Erin (engineer): Flags → turn on `instant_payouts` in dev (immediate), in prod (pending; Eli approves). Kill switch is immediate.
 6. Governance: per-app capabilities, inverted per-column view, per-user access review, SoD lint, drift, denials, manifest history.
 7. Edit `src/apps/refunds/manifest.yaml`, remove `card_last4` from `payments` → refunds page fails closed with a logged denial.
+
+## Building app #N (the "app builder")
+
+1. Open `/builder`: pick resources → tables → columns from the catalog, declare writes (only reachable via named actions), define actions
+   with roles / approval conditions / hard limits, mark PII. The manifest, validation errors, SoD lint and a governance preview update live.
+2. Click **scaffold app** (dev) or **copy the Devin prompt** and hand it to Devin. CLI equivalent: `npm run new-app -- --from manifest.yaml`.
+3. The app is live at `/<app>` immediately with a generic table + form UI; actions throw `TODO` until implemented in `src/apps/<app>/actions.ts`.
+4. Agent instructions: `AGENTS.md` (contract) and `docs/BUILDING_APPS.md` (reference). Example built this way: `src/apps/kyc-queue`
+   (two actions, four-eyes on sanctions hits and rejections, PII masking on OCR fields — ~40 lines of app code).
+
+KYC demo: as Kai, `/kyc-queue` → `kyc.decide` on `kyc_301` approve → executed; on `kyc_302` (sanctions hit) → pending; Kai cannot approve
+his own request; switch to Kim → `/approvals` → approve. Erin (engineer) gets 403 on the app; Ada (auditor) sees `ocr_name` masked.

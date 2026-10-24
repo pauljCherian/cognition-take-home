@@ -32,7 +32,7 @@ export function ApprovalsClient({ requests, actorId, approverFor }: { requests: 
               <button className="btn btn-primary" onClick={() => act(r.id, "approve")} title={mine ? "You requested this — the server will refuse (self-approval)" : !approverFor[key] ? "Your role is not an approver — the server will refuse" : ""}>Approve</button>
               <button className="btn" onClick={() => act(r.id, "reject")}>Reject</button>
             </div>
-          ) : <span className={r.status === "executed" ? "tag-ok" : "tag-deny"}>{r.status} by {r.decided_by}</span>}
+          ) : <span className={r.status === "executed" ? "tag-ok" : "tag-deny"}>{r.status} by {r.decided_by ?? r.requester_id}{r.decided_by ? "" : " (no approval needed)"}</span>}
         </td>
       </tr>
     );

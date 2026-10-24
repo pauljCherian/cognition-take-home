@@ -1,0 +1,41 @@
+app: kyc-queue
+title: KYC review queue
+owner: compliance-ops
+roles_with_access: [kyc_analyst, auditor]
+reads:
+  db.kyc:
+    tables:
+      kyc_cases: [id, customer_id, reason, status, risk_score, sanctions_hit, doc_type, doc_country, assigned_to, sla_due_at, created_at, decided_at, decision_reason]
+      kyc_documents: [id, case_id, kind, ocr_name, ocr_dob]
+writes:
+  db.kyc:
+    tables:
+      kyc_cases: [status, assigned_to, decided_at, decision_reason]
+    via_actions: [kyc.decide, kyc.assign]
+actions:
+  kyc.decide:
+    description: Approve, reject or escalate a KYC case. Sanctions/PEP hits and rejections need a second analyst (four-eyes).
+    input:
+      case_id: { type: string }
+      decision: { type: enum, values: [approve, reject, escalate] }
+      reason_code: { type: enum, values: [docs_verified, docs_illegible, name_mismatch_resolved, sanctions_false_positive, sanctions_confirmed, duplicate_confirmed, needs_senior_review] }
+    can_act: [kyc_analyst]
+    requires_approval_when:
+      - { context: sanctions_hit, op: eq, value: true }
+      - { field: decision, op: eq, value: reject }
+    approvers: [kyc_analyst]
+    reason_required: true
+  kyc.assign:
+    description: Take or reassign a case.
+    input:
+      case_id: { type: string }
+      assignee: { type: string }
+    can_act: [kyc_analyst]
+    requires_approval_when: []
+    approvers: []
+    reason_required: false
+pii:
+  kyc_cases.customer_id: { visible_to: [kyc_analyst, auditor] }
+  kyc_documents.ocr_name: { visible_to: [kyc_analyst] }
+  kyc_documents.ocr_dob: { visible_to: [kyc_analyst] }
+denied_by_default: true

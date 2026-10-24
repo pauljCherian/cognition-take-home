@@ -22,6 +22,14 @@ export const RESOURCE_CATALOG: Record<string, { kind: "database" | "http"; descr
     description: "Feature-flag store (own table). Credential: pg/flags, per-app role.",
     tables: { feature_flags: ["key", "environment", "enabled", "rollout_pct", "description", "updated_at"] },
   },
+  "db.kyc": {
+    kind: "database",
+    description: "KYC case store (synced from IDV vendor webhooks). Credential: pg/kyc, per-app role.",
+    tables: {
+      kyc_cases: ["id", "customer_id", "reason", "status", "risk_score", "sanctions_hit", "doc_type", "doc_country", "assigned_to", "sla_due_at", "created_at", "decided_at", "decision_reason"],
+      kyc_documents: ["id", "case_id", "kind", "storage_url", "ocr_name", "ocr_dob", "ocr_id_number"],
+    },
+  },
   stripe: {
     kind: "http",
     description: "Payment processor. Credential: stripe restricted key (refunds:write, charges:read).",
@@ -106,7 +114,7 @@ export function scopedHttp(manifest: Manifest, actor: Actor, resource: string, v
   return (method, path, body, opts) => {
     const w = manifest.writes[resource];
     const readOk = manifest.reads[resource]?.endpoints?.some((e) => endpointMatches(e, method, path));
-    const writeOk = w && w.via_action === viaAction && w.endpoints.some((e) => endpointMatches(e, method, path));
+    const writeOk = w && w.via_actions.includes(viaAction) && w.endpoints.some((e) => endpointMatches(e, method, path));
     if (!(readOk || writeOk)) {
       const msg = `${method} ${path} on ${resource} is not in ${manifest.app}'s scope (via ${viaAction})`;
       logDenial(manifest.app, actor, "write_scope", msg);

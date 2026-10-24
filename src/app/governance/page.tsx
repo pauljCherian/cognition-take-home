@@ -42,7 +42,7 @@ export default function GovernancePage() {
               <div className="mt-2 font-semibold text-xs uppercase text-neutral-500">Writes</div>
               {Object.entries(m.writes).length === 0 && <div className="ml-2 text-xs text-neutral-500">none</div>}
               {Object.entries(m.writes).map(([res, w]) => (
-                <div key={res} className="ml-2 text-xs"><span className="tag">{res}</span> {w.endpoints.map((e) => <span key={e} className="mr-1 font-mono">{e}</span>)}{Object.entries(w.tables).map(([t, cols]) => <span key={t} className="font-mono">{t}[{cols.join(", ")}]</span>)} <span className="text-neutral-500">only via</span> <span className="tag">{w.via_action}</span></div>
+                <div key={res} className="ml-2 text-xs"><span className="tag">{res}</span> {w.endpoints.map((e) => <span key={e} className="mr-1 font-mono">{e}</span>)}{Object.entries(w.tables).map(([t, cols]) => <span key={t} className="font-mono">{t}[{cols.join(", ")}]</span>)} <span className="text-neutral-500">only via</span> {w.via_actions.map((v) => <span key={v} className="tag mr-1">{v}</span>)}</div>
               ))}
               <div className="mt-2 font-semibold text-xs uppercase text-neutral-500">Actions</div>
               <table className="data mt-1"><thead><tr><th>Action</th><th>Can act</th><th>Approval when</th><th>Approvers</th><th>Hard limits</th></tr></thead>

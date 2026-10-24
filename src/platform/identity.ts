@@ -9,6 +9,7 @@ export const USERS: Actor[] = [
   { id: "u_fiona", name: "Fiona (finance)", role: "finance" },
   { id: "u_frank", name: "Frank (finance approver)", role: "finance_approver" },
   { id: "u_kai", name: "Kai (KYC analyst)", role: "kyc_analyst" },
+  { id: "u_kim", name: "Kim (KYC analyst)", role: "kyc_analyst" },
   { id: "u_erin", name: "Erin (engineer)", role: "engineer" },
   { id: "u_eli", name: "Eli (engineer)", role: "engineer" },
   { id: "u_aud", name: "Ada (auditor)", role: "auditor" },

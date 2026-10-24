@@ -72,7 +72,7 @@ export function sodFindings(manifests = loadManifests()) {
       if (Object.keys(a.limits).length === 0 && Object.values(a.input).some((f) => f.type === "number")) findings.push({ app: m.app, action: name, issue: "numeric input without a hard limit" });
     }
     for (const [res, w] of Object.entries(m.writes)) {
-      if (!m.actions[w.via_action]) findings.push({ app: m.app, action: w.via_action, issue: `write to ${res} routed via undeclared action` });
+      for (const via of w.via_actions) if (!m.actions[via]) findings.push({ app: m.app, action: via, issue: `write to ${res} routed via undeclared action` });
     }
   }
   return findings;

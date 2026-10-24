@@ -9,6 +9,8 @@ import { logDenial, scopedHttp, type HttpWriter } from "./resources";
 export type ActionCtx = {
   actor: Actor;
   requestId: string;
+  /** free-text reason supplied by the requester (or the approver's note) */
+  reason: string;
   http: (resource: string) => HttpWriter;
   db: ReturnType<typeof db>;
 };
@@ -23,10 +25,14 @@ export type ActionImpl = {
 
 export type AppModule = { actions: Record<string, ActionImpl> };
 
-const modules: Record<string, () => Promise<AppModule>> = {
-  refunds: () => import("@/apps/refunds/actions"),
-  flags: () => import("@/apps/flags/actions"),
-};
+/** Apps are discovered by convention: src/apps/<app>/actions.ts. No registry to edit. */
+async function loadModule(appId: string): Promise<AppModule> {
+  try {
+    return (await import(`../apps/${appId}/actions`)) as AppModule;
+  } catch (e) {
+    throw new Error(`app "${appId}" has a manifest but no src/apps/${appId}/actions.ts (${e instanceof Error ? e.message : e})`);
+  }
+}
 
 function inputSchema(spec: ActionSpec) {
   const shape: Record<string, z.ZodTypeAny> = {};
@@ -99,7 +105,7 @@ export async function invoke(appId: string, actionName: string, actor: Actor, ra
     if (lim.min !== undefined && v < lim.min) deny("limit", `${field}=${v} below hard limit ${lim.min}`);
   }
   // 4. approval predicate
-  const mod = await modules[appId]();
+  const mod = await loadModule(appId);
   const impl = mod.actions[actionName];
   if (!impl) throw new Error(`${appId} declares ${actionName} but has no implementation`);
   const facts = { ...input, ...(impl.context?.(input) ?? {}) };
@@ -108,6 +114,9 @@ export async function invoke(appId: string, actionName: string, actor: Actor, ra
   const requestId = newId("req");
   const d = db();
   if (matched.length > 0) {
+    // validate domain state now, not only when the approver clicks: a request for an already-decided
+    // case should be refused at submit time, not sit in the inbox
+    impl.before?.(input);
     d.transaction(() => {
       d.prepare(
         "INSERT INTO action_requests (id, app, action, requester_id, requester_role, input_json, reason, status, policy, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -127,7 +136,7 @@ function executeAndRecord(manifest: Manifest, actor: Actor, actionName: string, 
   return d.transaction(() => {
     const before = impl.before?.(input);
     const ctx: ActionCtx = {
-      actor, requestId, db: d,
+      actor, requestId, reason, db: d,
       http: (resource) => scopedHttp(manifest, actor, resource, actionName),
     };
     const result = impl.execute(ctx, input);
@@ -169,13 +178,13 @@ export async function decide(requestId: string, approver: Actor, decision: "appr
         .run(approver.id, nowIso(), decisionReason, requestId);
       audit(req.app, approver, "action.rejected", { action: req.action, request_id: requestId, reason: decisionReason, detail: `requested by ${req.requester_id}` });
     })();
-    return { status: "rejected" as const };
+    return { status: "rejected" as const, requestId };
   }
-  const mod = await modules[req.app]();
+  const mod = await loadModule(req.app);
   const impl = mod.actions[req.action];
   const requester: Actor = { id: req.requester_id, name: req.requester_id, role: req.requester_role as Actor["role"] };
   const result = executeAndRecord(manifest, approver, req.action, impl, JSON.parse(req.input_json), decisionReason || req.reason, requestId, "requires_approval", requester);
-  return { status: "executed" as const, result };
+  return { status: "executed" as const, requestId, result };
 }
 
 export function listRequests(filter?: { status?: string }) {

@@ -9,14 +9,21 @@ declare global {
   var __itp_db: Database.Database | undefined;
 }
 
+// Schema is idempotent and re-applied once per module load, so a new app's tables (added to the catalog
+// while the dev server is running) appear without a restart.
+let schemaApplied = false;
 export function db(): Database.Database {
-  if (globalThis.__itp_db) return globalThis.__itp_db;
+  if (globalThis.__itp_db) {
+    if (!schemaApplied) { migrate(globalThis.__itp_db); seed(globalThis.__itp_db); schemaApplied = true; }
+    return globalThis.__itp_db;
+  }
   fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
   const d = new Database(DB_PATH);
   d.pragma("journal_mode = WAL");
   d.pragma("foreign_keys = ON");
   migrate(d);
   seed(d);
+  schemaApplied = true;
   globalThis.__itp_db = d;
   return d;
 }
@@ -41,6 +48,15 @@ function migrate(d: Database.Database) {
     key TEXT NOT NULL, environment TEXT NOT NULL, enabled INTEGER NOT NULL,
     rollout_pct INTEGER NOT NULL DEFAULT 100, description TEXT NOT NULL,
     updated_at TEXT NOT NULL, PRIMARY KEY (key, environment)
+  );
+  CREATE TABLE IF NOT EXISTS kyc_cases (
+    id TEXT PRIMARY KEY, customer_id TEXT NOT NULL, reason TEXT NOT NULL, status TEXT NOT NULL,
+    risk_score INTEGER NOT NULL, sanctions_hit INTEGER NOT NULL, doc_type TEXT NOT NULL, doc_country TEXT NOT NULL,
+    assigned_to TEXT, sla_due_at TEXT NOT NULL, created_at TEXT NOT NULL, decided_at TEXT, decision_reason TEXT
+  );
+  CREATE TABLE IF NOT EXISTS kyc_documents (
+    id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES kyc_cases(id), kind TEXT NOT NULL, storage_url TEXT NOT NULL,
+    ocr_name TEXT NOT NULL, ocr_dob TEXT NOT NULL, ocr_id_number TEXT NOT NULL
   );
   -- ===== mock payment processor (stands in for Stripe) =====
   CREATE TABLE IF NOT EXISTS stripe_refunds (
@@ -78,6 +94,7 @@ function migrate(d: Database.Database) {
 }
 
 function seed(d: Database.Database) {
+  seedKyc(d);
   const n = d.prepare("SELECT COUNT(*) AS c FROM customers").get() as { c: number };
   if (n.c > 0) return;
   const now = Date.now();
@@ -112,6 +129,25 @@ function seed(d: Database.Database) {
     insF.run(key, "dev", 1, 100, desc, iso(5));
     insF.run(key, "staging", 1, 100, desc, iso(4));
     insF.run(key, "prod", key === "card_freeze" ? 1 : 0, key === "card_freeze" ? 25 : 0, desc, iso(3));
+  }
+}
+
+function seedKyc(d: Database.Database) {
+  const n = d.prepare("SELECT COUNT(*) AS c FROM kyc_cases").get() as { c: number };
+  if (n.c > 0) return;
+  const now = Date.now();
+  const iso = (h: number) => new Date(now + h * 3600000).toISOString();
+  const cases: [string, string, string, number, number, string, string, number][] = [
+    ["kyc_301", "c_1002", "doc_quality", 22, 0, "passport", "US", 20],
+    ["kyc_302", "c_1003", "sanctions_pep_hit", 81, 1, "national_id", "NG", 4],
+    ["kyc_303", "c_1004", "name_mismatch", 45, 0, "drivers_license", "US", 30],
+    ["kyc_304", "c_1001", "duplicate_identity", 60, 0, "passport", "SE", -2],
+  ];
+  const ins = d.prepare("INSERT INTO kyc_cases (id, customer_id, reason, status, risk_score, sanctions_hit, doc_type, doc_country, assigned_to, sla_due_at, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+  const insDoc = d.prepare("INSERT INTO kyc_documents VALUES (?,?,?,?,?,?,?)");
+  for (const [id, cust, reason, score, hit, doc, country, slaH] of cases) {
+    ins.run(id, cust, reason, "open", score, hit, doc, country, null, iso(slaH), iso(-48 + slaH));
+    insDoc.run(`doc_${id}`, id, doc, `s3://kyc-docs/${id}/front.jpg`, "REDACTED NAME", "1990-01-01", "X" + id.slice(-3) + "9981");
   }
 }
 
