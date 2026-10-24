@@ -24,7 +24,7 @@ actions:
     input:
       payment_id:   { type: string }
       amount_cents: { type: number }
-      reason:       { type: enum, values: [duplicate, fraudulent, requested_by_customer, service_issue] }
+      reason_code:  { type: enum, values: [duplicate, fraudulent, requested_by_customer, service_issue] }
     can_act: [support, finance]
     requires_approval_when:
       - { field: amount_cents,          op: gt,  value: 50000 }   # > $500

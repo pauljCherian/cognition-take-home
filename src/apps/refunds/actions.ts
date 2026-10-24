@@ -26,7 +26,7 @@ export const actions: AppModule["actions"] = {
       if (!charge) throw new Error("payment not found");
       if (charge.status === "refunded") throw new Error("payment already refunded");
       if (Number(input.amount_cents) > charge.amount) throw new Error("refund exceeds payment amount");
-      return stripe("POST", "/v1/refunds", { charge: input.payment_id, amount: input.amount_cents, reason: input.reason }, { idempotencyKey: ctx.requestId });
+      return stripe("POST", "/v1/refunds", { charge: input.payment_id, amount: input.amount_cents, reason: input.reason_code }, { idempotencyKey: ctx.requestId });
     },
   },
 };
