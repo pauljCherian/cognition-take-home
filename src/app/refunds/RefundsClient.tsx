@@ -57,7 +57,9 @@ export function RefundsClient({ payments, customers, disputes, canAct }: { payme
               inFlight.current = true; setBusy(true);
               const cents = Number(amount) * 100;
               const r = await callApi("/api/actions/refunds/refund.issue", { payment_id: sel.id, amount_cents: Number.isFinite(cents) && amount.trim() !== "" ? Math.round(cents) : amount, reason_code: reason, reason: note || reason });
-              setRes(r); setBusy(false); inFlight.current = false; router.refresh();
+              setRes(r); setBusy(false); inFlight.current = false;
+              if (r?.ok) setSel(null);
+              router.refresh();
             }}>Submit</button>
             <p className="text-xs text-neutral-500">Policy (from manifest): approval if &gt; $500, ≥2 refunds in 30d, open dispute, or high-risk customer. Hard cap $10,000.</p>
           </>
