@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActionResult, callApi, type ApiResult } from "@/components/ActionResult";
 
 type Row = Record<string, unknown>;
@@ -14,6 +14,7 @@ export function RefundsClient({ payments, customers, disputes, canAct }: { payme
   const [note, setNote] = useState("");
   const [res, setRes] = useState<ApiResult>(null);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
   const cust = (id: unknown) => customers.find((c) => c.id === id);
   const disputed = (pid: unknown) => disputes.some((d) => d.payment_id === pid && d.status === "open");
 
@@ -52,9 +53,11 @@ export function RefundsClient({ payments, customers, disputes, canAct }: { payme
             <label className="block text-sm">Reason code<select className="mt-1 w-full" value={reason} onChange={(e) => setReason(e.target.value)}>{REASONS.map((r) => <option key={r}>{r}</option>)}</select></label>
             <label className="block text-sm">Note (goes to audit; defaults to reason code)<textarea className="mt-1 w-full" rows={2} value={note} onChange={(e) => setNote(e.target.value)} /></label>
             <button className="btn btn-primary" disabled={busy} onClick={async () => {
-              setBusy(true);
-              const r = await callApi("/api/actions/refunds/refund.issue", { payment_id: sel.id, amount_cents: Math.round(Number(amount) * 100), reason_code: reason, reason: note || reason });
-              setRes(r); setBusy(false); router.refresh();
+              if (inFlight.current) return;
+              inFlight.current = true; setBusy(true);
+              const cents = Number(amount) * 100;
+              const r = await callApi("/api/actions/refunds/refund.issue", { payment_id: sel.id, amount_cents: Number.isFinite(cents) && amount.trim() !== "" ? Math.round(cents) : amount, reason_code: reason, reason: note || reason });
+              setRes(r); setBusy(false); inFlight.current = false; router.refresh();
             }}>Submit</button>
             <p className="text-xs text-neutral-500">Policy (from manifest): approval if &gt; $500, ≥2 refunds in 30d, open dispute, or high-risk customer. Hard cap $10,000.</p>
           </>
