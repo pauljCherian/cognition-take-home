@@ -124,10 +124,11 @@ export function devinPrompt(yamlText: string) {
   const name = v.manifest?.app ?? "<app>";
   return `Build the "${name}" internal tool on the internal-tools-platform.
 
-Read AGENTS.md and docs/BUILDING_APPS.md first. The capability manifest below has been reviewed and approved;
+Read AGENTS.md and docs/BUILDING_APPS.md first. The capability manifest below is the approved scope for this app (it is reviewed as a permission change in the PR);
 do not widen it. If the task needs data or writes it does not grant, stop and ask.
 
-1. Run: npm run new-app -- --from manifest.yaml   (or paste the manifest into src/apps/${name}/manifest.yaml and run the scaffolder)
+1. Save the YAML below to a file (e.g. /tmp/${name}.yaml) and run: npm run new-app -- --from /tmp/${name}.yaml
+   (if src/apps/${name} already exists as an unimplemented scaffold, add --force; never --force over implemented code)
 2. Implement every TODO in src/apps/${name}/actions.ts using only ctx.http(<resource>) / ctx.db on the declared writes.
 3. Keep src/app/${name}/page.tsx on <GenericApp/> unless a bespoke UI is required; if you build one, read with query() and write via /api/actions/${name}/<action>.
 4. Add tests per docs/BUILDING_APPS.md#tests: allowed, denied role, approval predicate, self-approval blocked, hard limit.

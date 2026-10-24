@@ -13,10 +13,11 @@ const num = (s: string) => (s.trim() === "" || isNaN(Number(s)) ? s : Number(s))
 const val = (s: string) => (s === "true" ? true : s === "false" ? false : num(s));
 
 export function BuilderClient({ catalog, roles }: { catalog: Catalog; roles: string[] }) {
-  const [app, setApp] = useState("kyc-queue");
-  const [title, setTitle] = useState("KYC review queue");
-  const [owner, setOwner] = useState("compliance-ops");
-  const [access, setAccess] = useState<string[]>(["kyc_analyst", "auditor"]);
+  const [app, setApp] = useState("my-app");
+  const [title, setTitle] = useState("My app");
+  const [owner, setOwner] = useState("team-name");
+  const [access, setAccess] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
   const [reads, setReads] = useState<Record<string, string[]>>({}); // "res|table" -> cols
   const [readEps, setReadEps] = useState<Record<string, string[]>>({});
   const [writes, setWrites] = useState<{ resource: string; endpoints: string[]; table: string; cols: string[]; via: string }[]>([]);
@@ -25,6 +26,7 @@ export function BuilderClient({ catalog, roles }: { catalog: Catalog; roles: str
   const [raw, setRaw] = useState<string | null>(null);
   const [v, setV] = useState<Validation | null>(null);
   const [scaffoldMsg, setScaffoldMsg] = useState<string | null>(null);
+  const [scaffoldedApp, setScaffoldedApp] = useState<string | null>(null);
   const [tab, setTab] = useState<"yaml" | "prompt">("yaml");
 
   const generated = useMemo(() => {
@@ -104,7 +106,7 @@ export function BuilderClient({ catalog, roles }: { catalog: Catalog; roles: str
             <div key={i} className="rounded border border-neutral-200 p-2 space-y-1">
               <div className="flex gap-2">
                 <select value={w.resource} onChange={(e) => setWrites(writes.map((x, j) => j === i ? { ...x, resource: e.target.value, endpoints: [], table: "", cols: [] } : x))}><option value="">resource…</option>{Object.keys(catalog).map((r) => <option key={r}>{r}</option>)}</select>
-                <input placeholder="via_actions e.g. kyc.decide, kyc.assign" value={w.via} onChange={(e) => setWrites(writes.map((x, j) => j === i ? { ...x, via: e.target.value } : x))} />
+                <input placeholder="via_actions (comma-separated action names that may perform this write)" value={w.via} onChange={(e) => setWrites(writes.map((x, j) => j === i ? { ...x, via: e.target.value } : x))} />
                 <button type="button" className="btn" onClick={() => setWrites(writes.filter((_, j) => j !== i))}>remove</button>
               </div>
               {catalog[w.resource]?.endpoints && <div className="flex flex-wrap gap-1">{catalog[w.resource].endpoints!.filter((e) => !e.startsWith("GET")).map((e) => <button type="button" key={e} onClick={() => setWrites(writes.map((x, j) => j === i ? { ...x, endpoints: toggle(x.endpoints, e) } : x))} className={w.endpoints.includes(e) ? "tag ring-1 ring-neutral-900" : "tag opacity-50"}>{e}</button>)}</div>}
@@ -160,11 +162,12 @@ export function BuilderClient({ catalog, roles }: { catalog: Catalog; roles: str
             <div className="flex gap-2 text-sm"><button type="button" className={tab === "yaml" ? "btn btn-primary" : "btn"} onClick={() => setTab("yaml")}>manifest.yaml</button><button type="button" className={tab === "prompt" ? "btn btn-primary" : "btn"} onClick={() => setTab("prompt")}>Devin prompt</button></div>
             <div className="flex gap-2">
               {raw !== null && <button type="button" className="btn" onClick={() => setRaw(null)}>back to form</button>}
-              <button type="button" className="btn" onClick={() => navigator.clipboard.writeText(tab === "yaml" ? yaml : v?.prompt ?? "")}>copy</button>
+              <button type="button" className="btn" onClick={async () => { await navigator.clipboard.writeText(tab === "yaml" ? yaml : v?.prompt ?? ""); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? "copied ✓" : "copy"}</button>
               <button type="button" className="btn btn-primary" disabled={!v?.ok} title={v?.exists ? "app exists — will overwrite manifest/stubs" : ""} onClick={async () => {
+                if (v?.exists && !confirm(`src/apps/${app} exists. Re-scaffold overwrites manifest.yaml, actions.ts AND page.tsx (any implemented code is lost). Continue?`)) return;
                 const r = await fetch("/api/builder/scaffold", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ yaml, force: v?.exists }) });
                 const b = await r.json();
-                setScaffoldMsg(r.ok ? `Scaffolded: ${b.files.join(", ")}. Open /${b.app} (generic UI works immediately; actions throw TODO until implemented).` : `Error: ${b.error}`);
+                setScaffoldMsg(r.ok ? `Scaffolded ${b.files.join(", ")}. Generic UI works immediately; actions return "TODO: implement" until src/apps/${b.app}/actions.ts is filled in.` : `Error: ${b.error}`); setScaffoldedApp(r.ok ? b.app : null);
               }}>{v?.exists ? "re-scaffold" : "scaffold app"}</button>
             </div>
           </div>
@@ -174,7 +177,7 @@ export function BuilderClient({ catalog, roles }: { catalog: Catalog; roles: str
             <pre className="h-[28rem] overflow-auto whitespace-pre-wrap rounded bg-neutral-50 p-2 text-xs">{v?.prompt}</pre>
           )}
           {raw !== null && <p className="text-xs text-amber-700">Editing YAML directly; the form is detached until you go back.</p>}
-          {scaffoldMsg && <p className="text-xs">{scaffoldMsg}</p>}
+          {scaffoldMsg && <p className="text-xs">{scaffoldMsg} {scaffoldedApp && <a className="btn btn-primary ml-2" href={`/${scaffoldedApp}`}>Open /{scaffoldedApp} →</a>}</p>}
         </section>
         <section className="card space-y-2 text-sm">
           <h2>Validation {v ? (v.ok ? <span className="tag-ok">valid</span> : <span className="tag-deny">{v.errors.length} errors</span>) : null}</h2>

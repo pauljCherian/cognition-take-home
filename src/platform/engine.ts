@@ -4,7 +4,7 @@ import { DeniedError } from "./errors";
 import type { Actor } from "./identity";
 import type { ActionSpec, Condition, Manifest } from "./manifest";
 import { getManifest } from "./manifest";
-import { logDenial, scopedHttp, type HttpWriter } from "./resources";
+import { logDenial, scopedHttp, type HttpWriter, scopedDb } from "./resources";
 
 export type ActionCtx = {
   actor: Actor;
@@ -116,7 +116,7 @@ export async function invoke(appId: string, actionName: string, actor: Actor, ra
   if (matched.length > 0) {
     // validate domain state now, not only when the approver clicks: a request for an already-decided
     // case should be refused at submit time, not sit in the inbox
-    impl.before?.(input);
+    guarded(appId, actor, actionName, () => impl.before?.(input));
     d.transaction(() => {
       d.prepare(
         "INSERT INTO action_requests (id, app, action, requester_id, requester_role, input_json, reason, status, policy, created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
@@ -126,8 +126,18 @@ export async function invoke(appId: string, actionName: string, actor: Actor, ra
     return { status: "pending", requestId, matched };
   }
 
-  const result = executeAndRecord(manifest, actor, actionName, impl, input, reason, requestId, "allow");
+  const result = guarded(appId, actor, actionName, () => executeAndRecord(manifest, actor, actionName, impl, input, reason, requestId, "allow"));
   return { status: "executed", requestId, result };
+}
+
+/** DeniedError thrown by app code (before/execute) is recorded like any other denial, then re-thrown. */
+function guarded<T>(appId: string, actor: Actor, actionName: string, fn: () => T): T {
+  try {
+    return fn();
+  } catch (e) {
+    if (e instanceof DeniedError) logDenial(appId, actor, e.kind, `${actionName}: ${e.message}`);
+    throw e;
+  }
 }
 
 function executeAndRecord(manifest: Manifest, actor: Actor, actionName: string, impl: ActionImpl, input: Record<string, unknown>, reason: string, requestId: string, policy: "allow" | "requires_approval", requester?: Actor) {
@@ -136,7 +146,7 @@ function executeAndRecord(manifest: Manifest, actor: Actor, actionName: string, 
   return d.transaction(() => {
     const before = impl.before?.(input);
     const ctx: ActionCtx = {
-      actor, requestId, reason, db: d,
+      actor, requestId, reason, db: scopedDb(manifest, actor, actionName, d),
       http: (resource) => scopedHttp(manifest, actor, resource, actionName),
     };
     const result = impl.execute(ctx, input);
@@ -183,7 +193,7 @@ export async function decide(requestId: string, approver: Actor, decision: "appr
   const mod = await loadModule(req.app);
   const impl = mod.actions[req.action];
   const requester: Actor = { id: req.requester_id, name: req.requester_id, role: req.requester_role as Actor["role"] };
-  const result = executeAndRecord(manifest, approver, req.action, impl, JSON.parse(req.input_json), decisionReason || req.reason, requestId, "requires_approval", requester);
+  const result = guarded(req.app, approver, req.action, () => executeAndRecord(manifest, approver, req.action, impl, JSON.parse(req.input_json), decisionReason || req.reason, requestId, "requires_approval", requester));
   return { status: "executed" as const, requestId, result };
 }
 

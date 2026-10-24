@@ -1,3 +1,4 @@
+import type Database from "better-sqlite3";
 import { db, newId, nowIso } from "./db";
 import { DeniedError } from "./errors";
 import type { Actor } from "./identity";
@@ -101,6 +102,40 @@ function mask(v: string) {
 // ---- HTTP resource (mock Stripe). Only reachable from inside an Action's execute(). ----
 
 export type HttpWriter = (method: "POST" | "GET", path: string, body?: Record<string, unknown>, opts?: { idempotencyKey?: string }) => unknown;
+
+/**
+ * Statement-level write scoping for the prototype's SQLite handle: INSERT/UPDATE/DELETE must target a table the
+ * manifest grants to this action, and UPDATE may only SET granted columns. Reads pass through. In production this is
+ * compiled into a per-app Postgres role (GRANT UPDATE (cols) ON table), so the check is physical rather than parsed.
+ */
+export function scopedDb(manifest: Manifest, actor: Actor, actionName: string, d: Database.Database): Database.Database {
+  const check = (sql: string) => {
+    const m = /^\s*(update|insert\s+into|delete\s+from)\s+"?(\w+)"?/i.exec(sql);
+    if (!m) return;
+    const table = m[2];
+    const grant = Object.values(manifest.writes).find((w) => w.via_actions.includes(actionName) && w.tables[table]);
+    const deny = (msg: string): never => {
+      logDenial(manifest.app, actor, "write_scope", `${actionName}: ${msg}`);
+      throw new DeniedError("write_scope", msg);
+    };
+    if (!grant) deny(`${actionName} may not write table ${table} (not in writes.*.tables for this action)`);
+    if (/^\s*update/i.test(sql)) {
+      const set = /\bset\b([\s\S]*?)(\bwhere\b|$)/i.exec(sql)?.[1] ?? "";
+      for (const part of set.split(",")) {
+        const col = part.split("=")[0].trim().replace(/"/g, "");
+        if (col && !grant!.tables[table].includes(col)) deny(`${actionName} may not set ${table}.${col}`);
+      }
+    }
+  };
+  return new Proxy(d, {
+    get(target, prop, receiver) {
+      if (prop === "prepare") return (sql: string) => { check(sql); return target.prepare(sql); };
+      if (prop === "exec") return (sql: string) => { check(sql); return target.exec(sql); };
+      const v = Reflect.get(target, prop, receiver);
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+}
 
 export function endpointMatches(pattern: string, method: string, path: string) {
   const [pm, pp] = pattern.split(" ");

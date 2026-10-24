@@ -6,7 +6,9 @@ implement any of those.** You implement one thing: the domain write inside each 
 
 ## The contract
 `src/apps/<app>/manifest.yaml` is the capability manifest. It is the *only* thing that grants an app access.
-Everything not declared in it is denied at runtime (403 + a row in `denials`), regardless of what the code does.
+Everything not declared in it is denied at runtime (403 + a row in `denials`): reads are column-checked, HTTP writes are
+endpoint-checked, and DB writes are statement-checked against `writes.<resource>.tables` for the owning action (prototype;
+production compiles the same grant into a per-app DB role so it is physical, not parsed).
 
 - **Never widen the manifest to make code work.** If the task needs a column, endpoint or write that the manifest
   doesn't grant, stop and ask the resource owner. A manifest diff is a permission change and is reviewed as one.

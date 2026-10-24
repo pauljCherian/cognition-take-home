@@ -34,9 +34,7 @@ writes:
   db.kyc:
     tables: { kyc_cases: [status, decided_at, decision_reason, assigned_to] }   # columns execute() may change
     via_action: kyc.decide     # the ONLY way to reach this write
-  stripe:
-    endpoints: [POST /v1/refunds]
-    via_action: refund.issue
+  # several actions may own one write: `via_actions: [kyc.decide, kyc.assign]`
 
 actions:
   kyc.decide:
@@ -59,7 +57,7 @@ pii:
 denied_by_default: true        # must be true
 ```
 
-Schema: `manifestSchema` in `src/platform/manifest.ts`. Ops: `gt gte lt lte eq neq`. Input types: `string number boolean enum`.
+Schema: `manifestSchema` in `src/platform/manifest.ts`. Ops: `gt gte lt lte eq neq in` (`in` takes a list value). `writes.<res>` takes `via_action: x` or `via_actions: [x, y]`. Input types: `string number boolean enum`.
 Reserved request-body key: `reason` (do not name an input `reason`; use e.g. `reason_code`).
 
 Validation also enforces: `via_action` exists; conditions/limits reference declared inputs; roles are in `roles_with_access`;
@@ -95,8 +93,8 @@ export const actions: AppModule["actions"] = {
 
 `ctx`: `{ actor, requestId, reason, db, http(resource) }`.
 - `const stripe = ctx.http("stripe"); stripe("GET", "/v1/charges/ch_1"); stripe("POST", "/v1/refunds", body, { idempotencyKey: ctx.requestId })` — signature `(method, path, body?, { idempotencyKey? })`; refuses undeclared method/path (403 + denial row).
-- `ctx.db` — the transaction-bound SQLite handle. Only touch `writes.<res>.tables`. (Prod: a per-app DB role makes this physical.)
-- Throw `new DeniedError("state", "...")` (`src/platform/errors.ts`) for domain-invalid requests; it becomes a 403 and a denial row.
+- `ctx.db` — the transaction-bound SQLite handle, wrapped so INSERT/UPDATE/DELETE on a table not granted to this action, or UPDATE of an ungranted column, is refused (403 `write_scope` + denial row). SELECTs pass. (Prod: a per-app DB role makes this physical.)
+- Throw `new DeniedError("state", "...")` (`src/platform/errors.ts`) for domain-invalid requests; it becomes a 403 and a denial row. Any other thrown error becomes a 400 with the message (e.g. the scaffold's `TODO: implement …`) and no denial row.
 
 Everything else in the module is ignored; there is no registry to edit — apps are discovered from `src/apps/<app>/actions.ts`.
 
@@ -117,13 +115,16 @@ Bespoke UI (`src/app/refunds` is the reference):
 | `POST /api/actions/<app>/<action>` body `{...input, reason}` | invoke an action | `200 executed`, `202 pending`, `403 {kind: role|input|limit|state|write_scope, denied: true}` |
 | `POST /api/approvals/<requestId>` body `{decision: "approve"|"reject", reason?}` | maker-checker decision | `200 {status, requestId, result?}`, `403 self_approval|role|state` |
 | `POST /api/query/<app>` body `{resource, table, columns, where?: {col: value}, orderBy?, limit?}` | manifest-checked read (where/orderBy columns must be in scope too) | `200 {rows}`, `403 read_scope` |
-| `POST /api/resources/<app>/<resource>` | raw connector write — always denied; exists to prove it | `403 write_scope` |
+| `POST /api/resources/<app>/<resource>` body `{method, path}` | raw connector write — always denied; exists to prove it | `403 write_scope` |
+| `GET /api/builder/catalog` | resource catalog + roles | `200 {catalog, roles}` |
 | `POST /api/builder/validate` body `{yaml}` | validate a manifest, get lint + Devin prompt | `200 {ok, errors, lint, prompt}` |
-| `POST /api/builder/scaffold` body `{yaml}` (dev only) | write manifest + stubs | `200 {files}` |
+| `POST /api/builder/scaffold` body `{yaml, force?}` (dev only) | write manifest + stubs (`force` overwrites all three files) | `200 {app, files}`, `400 {error}`, `403` in production |
+
+Any non-`DeniedError` thrown by app code returns `400 {error}` (no denial row). Validation returns `{ok, errors, lint, drift, exists, manifest, prompt}`.
 
 Actor: cookie `itp_actor` (set via `/api/actor`) or header `x-actor: u_sam`. Prototype users are in `src/platform/identity.ts`.
 
-## 6. Tests
+## 6. Tests <a id="tests"></a>
 
 Every app PR must prove its policy. Minimum, via the HTTP API with `x-actor` headers:
 
@@ -134,15 +135,15 @@ Every app PR must prove its policy. Minimum, via the HTTP API with `x-actor` hea
 5. input outside `limits` → `403 limit`
 6. a read of an undeclared column via `/api/query` → `403 read_scope`
 
-`scripts/smoke.sh refunds` / `scripts/smoke.sh kyc-queue` run exactly this list against the dev server (curl + `x-actor`); copy the block for your app. Governance panel → "Live denials" should show 2, 4, 5, 6 after the run.
+`scripts/smoke.sh refunds` / `scripts/smoke.sh kyc-queue` run an equivalent list against the dev server (curl + `x-actor`; kyc has no numeric limit so it checks a `state` denial instead). They mutate seed data, so they are single-shot per fresh DB (`rm data/platform.db*` and restart). Copy the block for your app. Governance panel → "Live denials" should show 2, 4, 5, 6 after the run.
 
 ## 7. Scaffolder and builder
 
 - `/builder`: compose from the catalog, see YAML + validation + SoD lint + governance preview live, then **scaffold** (dev) or
   **copy the Devin prompt** (the prompt embeds the manifest and these rules).
-- `npm run new-app -- --from manifest.yaml [--force]`: same scaffolder from the CLI. Idempotent on `--force`.
-- Production: the builder never writes to disk; it produces a PR containing only the manifest, which the resource owner approves
-  before any app code is written.
+- `npm run new-app -- --from manifest.yaml [--force]`: same scaffolder from the CLI. **`--force` overwrites `actions.ts` and `page.tsx` too**, not just the manifest — use it only on an unimplemented scaffold; to change a live app's manifest, edit the YAML and open a PR.
+- Production (not implemented in the prototype): `scaffold` is disabled (`403`); the intended flow is that the builder opens a PR
+  containing only the manifest, the resource owner approves it, and Devin is then handed the prompt. Today: copy the prompt.
 
 ## 8. Don'ts
 
