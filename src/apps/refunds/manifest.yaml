@@ -1,0 +1,42 @@
+# Capability manifest: everything the refunds app may touch. Anything not listed is unreachable.
+app: refunds
+title: Refunds dashboard
+owner: payments-ops
+roles_with_access: [support, finance, finance_approver, auditor]
+
+reads:
+  db.payments:
+    tables:
+      payments:  [id, customer_id, amount_cents, currency, card_last4, status, created_at]   # no card_pan
+      customers: [id, email, risk_tier]                                                     # no full_name, no ssn_last4
+      disputes:  [id, payment_id, status, opened_at]
+  stripe:
+    endpoints: ["GET /v1/charges/{id}"]
+
+writes:
+  stripe:
+    endpoints: ["POST /v1/refunds"]
+    via_action: refund.issue          # the only way to reach this endpoint
+
+actions:
+  refund.issue:
+    description: Refund a payment through the processor.
+    input:
+      payment_id:   { type: string }
+      amount_cents: { type: number }
+      reason:       { type: enum, values: [duplicate, fraudulent, requested_by_customer, service_issue] }
+    can_act: [support, finance]
+    requires_approval_when:
+      - { field: amount_cents,          op: gt,  value: 50000 }   # > $500
+      - { context: prior_refunds_30d,   op: gte, value: 2 }
+      - { context: has_open_dispute,    op: eq,  value: true }
+      - { context: customer_risk_tier,  op: eq,  value: high }
+    approvers: [finance_approver]
+    limits:
+      amount_cents: { max: 1000000, min: 1 }                      # hard ceiling $10,000; no approval can exceed it
+    reason_required: true
+
+pii:
+  customers.email: { visible_to: [finance, finance_approver, auditor] }
+
+denied_by_default: true

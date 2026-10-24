@@ -1,0 +1,44 @@
+# Generated from the platform playbook (docs/DEVIN_PLAYBOOK.md) — second app, same primitives.
+app: flags
+title: Feature-flag admin
+owner: platform-eng
+roles_with_access: [engineer, auditor]
+
+reads:
+  db.flags:
+    tables:
+      feature_flags: [key, environment, enabled, rollout_pct, description, updated_at]
+
+writes:
+  db.flags:
+    tables:
+      feature_flags: [enabled, rollout_pct, updated_at]
+    via_action: flag.set
+
+actions:
+  flag.set:
+    description: Enable/disable a flag or change its rollout percentage in one environment.
+    input:
+      key:         { type: string }
+      environment: { type: enum, values: [dev, staging, prod] }
+      enabled:     { type: boolean }
+      rollout_pct: { type: number }
+    can_act: [engineer]
+    requires_approval_when:
+      - { field: environment, op: eq, value: prod }   # a prod flag flip is a prod change
+    approvers: [engineer]                              # second engineer; self-approval blocked by platform
+    limits:
+      rollout_pct: { min: 0, max: 100 }
+    reason_required: true
+
+  flag.kill:
+    description: Emergency kill switch — disable a flag everywhere immediately. No approval, loud audit.
+    input:
+      key: { type: string }
+    can_act: [engineer]
+    requires_approval_when: []
+    approvers: []
+    reason_required: true
+
+pii: {}
+denied_by_default: true
