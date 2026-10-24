@@ -94,7 +94,7 @@ export const actions: AppModule["actions"] = {
 ```
 
 `ctx`: `{ actor, requestId, reason, db, http(resource) }`.
-- `ctx.http("stripe").post(path, body)` / `.get(path)` — refuses undeclared method/path (403 + denial row). Use `ctx.requestId` as the idempotency key.
+- `const stripe = ctx.http("stripe"); stripe("GET", "/v1/charges/ch_1"); stripe("POST", "/v1/refunds", body, { idempotencyKey: ctx.requestId })` — signature `(method, path, body?, { idempotencyKey? })`; refuses undeclared method/path (403 + denial row).
 - `ctx.db` — the transaction-bound SQLite handle. Only touch `writes.<res>.tables`. (Prod: a per-app DB role makes this physical.)
 - Throw `new DeniedError("state", "...")` (`src/platform/errors.ts`) for domain-invalid requests; it becomes a 403 and a denial row.
 
@@ -115,8 +115,8 @@ Bespoke UI (`src/app/refunds` is the reference):
 | Endpoint | Purpose | Responses |
 |---|---|---|
 | `POST /api/actions/<app>/<action>` body `{...input, reason}` | invoke an action | `200 executed`, `202 pending`, `403 {kind: role|input|limit|state|write_scope, denied: true}` |
-| `POST /api/approvals/<requestId>` body `{decision: approve|reject, note}` | maker-checker decision | `200`, `403 self_approval|role|state` |
-| `POST /api/query/<app>` body `{resource, table, columns, where?, limit?}` | manifest-checked read | `200 rows`, `403 read_scope` |
+| `POST /api/approvals/<requestId>` body `{decision: "approve"|"reject", reason?}` | maker-checker decision | `200 {status, requestId, result?}`, `403 self_approval|role|state` |
+| `POST /api/query/<app>` body `{resource, table, columns, where?: {col: value}, orderBy?, limit?}` | manifest-checked read (where/orderBy columns must be in scope too) | `200 {rows}`, `403 read_scope` |
 | `POST /api/resources/<app>/<resource>` | raw connector write — always denied; exists to prove it | `403 write_scope` |
 | `POST /api/builder/validate` body `{yaml}` | validate a manifest, get lint + Devin prompt | `200 {ok, errors, lint, prompt}` |
 | `POST /api/builder/scaffold` body `{yaml}` (dev only) | write manifest + stubs | `200 {files}` |
@@ -134,7 +134,7 @@ Every app PR must prove its policy. Minimum, via the HTTP API with `x-actor` hea
 5. input outside `limits` → `403 limit`
 6. a read of an undeclared column via `/api/query` → `403 read_scope`
 
-`scripts/smoke.sh <app>` shows the shape. Governance panel → "Live denials" should show 2, 4, 5, 6 after the run.
+`scripts/smoke.sh refunds` / `scripts/smoke.sh kyc-queue` run exactly this list against the dev server (curl + `x-actor`); copy the block for your app. Governance panel → "Live denials" should show 2, 4, 5, 6 after the run.
 
 ## 7. Scaffolder and builder
 
