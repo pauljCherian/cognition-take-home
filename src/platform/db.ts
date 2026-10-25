@@ -120,6 +120,7 @@ function seed(d: Database.Database) {
   const insP = d.prepare("INSERT INTO payments VALUES (?,?,?,?,?,?,?,?)");
   payments.forEach((p) => insP.run(...p.slice(0, 7), iso(p[7] as number)));
   d.prepare("INSERT INTO disputes VALUES (?,?,?,?)").run("dp_1", "pay_c3e9", "open", iso(1));
+  d.prepare("INSERT INTO disputes VALUES (?,?,?,?)").run("dp_2", "pay_d410", "open", iso(2));
   const insF = d.prepare("INSERT INTO feature_flags VALUES (?,?,?,?,?,?)");
   for (const [key, desc] of [
     ["instant_payouts", "Enable instant payouts for verified merchants"],
