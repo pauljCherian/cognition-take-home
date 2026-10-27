@@ -1,7 +1,7 @@
 # internal-tools-platform
 
 Prototype of a manifest-governed internal-tools platform (Power Apps replacement for a fintech),
-built with Next.js + TypeScript + SQLite. See `docs/NOTES.md` for the reasoning and
+built with Next.js + TypeScript + SQLite. See `docs/NOTES.md` for the reasoning, `docs/RECOMMENDATION.md` for build-vs-buy, `docs/DEMO_SCRIPT.md` for the demo script + Power Apps contrast + adoption plan, and
 `docs/DEVIN_PLAYBOOK.md` for how Devin adds an app.
 
 ```
