@@ -28,10 +28,13 @@ const GOV_PATHS = ["/governance", "/audit", "/builder"];
 export function Shell({ apps, pendingApprovals, users, actor, children }: Props) {
   const path = usePathname();
   const gov = GOV_PATHS.some((p) => path.startsWith(p));
+  const c = gov
+    ? { tab: "bg-emerald-700 text-white", side: "border-emerald-100 bg-emerald-50/60", head: "text-emerald-800", active: "bg-white text-emerald-900 ring-1 ring-emerald-200", hover: "hover:bg-emerald-100/70", badge: "bg-emerald-100 text-emerald-800" }
+    : { tab: "bg-indigo-600 text-white", side: "border-indigo-100 bg-indigo-50/60", head: "text-indigo-800", active: "bg-white text-indigo-900 ring-1 ring-indigo-200", hover: "hover:bg-indigo-100/70", badge: "bg-amber-100 text-amber-800" };
   const tab = (href: string, label: string, active: boolean) => (
     <Link
       href={href}
-      className={`rounded-md px-3 py-1 text-sm font-medium ${active ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"}`}
+      className={`rounded-md px-3 py-1 text-sm font-medium transition ${active ? c.tab : "text-slate-600 hover:bg-slate-100"}`}
     >
       {label}
     </Link>
@@ -41,19 +44,22 @@ export function Shell({ apps, pendingApprovals, users, actor, children }: Props)
       key={href}
       href={href}
       className={`flex items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-        active ? "bg-white font-medium text-neutral-900 shadow-sm" : muted ? "text-neutral-400 hover:bg-neutral-100" : "text-neutral-700 hover:bg-neutral-100"
+        active ? `${c.active} font-medium shadow-sm` : muted ? `text-slate-400 ${c.hover}` : `text-slate-700 ${c.hover}`
       }`}
     >
       {label}
     </Link>
   );
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="border-b border-neutral-200 bg-white">
+    <div className={`flex min-h-screen flex-col ${gov ? "ws-gov" : "ws-apps"}`}>
+      <header className="border-b border-slate-200 bg-white">
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-6">
-            <Link href="/" className="font-semibold">internal-tools</Link>
-            <div className="flex items-center gap-1 rounded-lg border border-neutral-200 p-0.5">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-slate-900">
+              <span className="inline-block h-5 w-5 rounded bg-gradient-to-br from-indigo-500 to-emerald-500" />
+              internal-tools
+            </Link>
+            <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
               {tab("/", "Apps", !gov)}
               {tab("/governance", "Governance", gov)}
             </div>
@@ -65,17 +71,17 @@ export function Shell({ apps, pendingApprovals, users, actor, children }: Props)
         </div>
       </header>
       <div className="flex flex-1">
-        <aside className="w-60 shrink-0 border-r border-neutral-200 bg-neutral-50 p-3">
+        <aside className={`w-60 shrink-0 border-r p-3 ${c.side}`}>
           {!gov ? (
             <nav className="space-y-4">
               <div>
-                <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Your apps</div>
+                <div className={`mb-1 px-2 text-xs font-semibold uppercase tracking-wide ${c.head}`}>Your apps</div>
                 {apps.map((a) =>
                   item(
                     `/${a.app}`,
                     <>
                       <span>{a.title}</span>
-                      {!a.ok && <span className="text-[10px] text-neutral-400">no access</span>}
+                      {!a.ok && <span className="text-[10px] text-slate-400">no access</span>}
                     </>,
                     path === `/${a.app}`,
                     !a.ok,
@@ -83,17 +89,17 @@ export function Shell({ apps, pendingApprovals, users, actor, children }: Props)
                 )}
               </div>
               <div>
-                <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Work</div>
+                <div className={`mb-1 px-2 text-xs font-semibold uppercase tracking-wide ${c.head}`}>Work</div>
                 {item(
                   "/approvals",
                   <>
                     <span>Approval inbox</span>
-                    {pendingApprovals > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">{pendingApprovals}</span>}
+                    {pendingApprovals > 0 && <span className={`rounded-full px-1.5 text-xs ${c.badge}`}>{pendingApprovals}</span>}
                   </>,
                   path === "/approvals",
                 )}
               </div>
-              <p className="px-2 text-xs text-neutral-400">
+              <p className="px-2 text-xs text-slate-400">
                 Apps you can&apos;t open are listed so access requests are explicit. Everything here is enforced by each app&apos;s manifest — see{" "}
                 <Link className="underline" href="/governance">Governance</Link>.
               </p>
@@ -101,15 +107,15 @@ export function Shell({ apps, pendingApprovals, users, actor, children }: Props)
           ) : (
             <nav className="space-y-4">
               <div>
-                <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Governance</div>
+                <div className={`mb-1 px-2 text-xs font-semibold uppercase tracking-wide ${c.head}`}>Governance</div>
                 {item("/governance", "Overview", path === "/governance")}
                 {GOV_SECTIONS.map(([href, label]) => item(href, label, href === "/audit" && path === "/audit"))}
               </div>
               <div>
-                <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">Build</div>
+                <div className={`mb-1 px-2 text-xs font-semibold uppercase tracking-wide ${c.head}`}>Build</div>
                 {item("/builder", "+ New app (manifest builder)", path === "/builder")}
               </div>
-              <p className="px-2 text-xs text-neutral-400">For security, auditors and platform owners. Nothing here moves money; it shows what each app is allowed to do and what it tried.</p>
+              <p className="px-2 text-xs text-slate-400">For security, auditors and platform owners. Nothing here moves money; it shows what each app is allowed to do and what it tried.</p>
             </nav>
           )}
         </aside>
