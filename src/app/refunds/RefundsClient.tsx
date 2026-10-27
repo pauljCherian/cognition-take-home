@@ -19,7 +19,7 @@ export function RefundsClient({ payments, customers, disputes, canAct }: { payme
   const disputed = (pid: unknown) => disputes.some((d) => d.payment_id === pid && d.status === "open");
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 2xl:grid-cols-3">
       <div className="card lg:col-span-2">
         <table className="data">
           <thead><tr><th>Payment</th><th>Customer</th><th>Email</th><th>Risk</th><th>Amount</th><th>Card</th><th>Status</th><th>Created</th><th></th></tr></thead>

@@ -16,7 +16,7 @@ export function GenericApp({ manifest: m, actor }: { manifest: Manifest; actor: 
   return (
     <>
       <div className="flex items-baseline justify-between"><h1>{m.title}</h1><span className="text-xs text-neutral-500">generic view from src/apps/{m.app}/manifest.yaml</span></div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 2xl:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">
           {tables.map((t) => (
             <div key={t.resource + t.table} className="card overflow-x-auto">
