@@ -9,8 +9,8 @@ export default function Home() {
     <>
       <h1>Apps</h1>
       <p className="text-sm text-neutral-600">
-        Each app is a <code>manifest.yaml</code> (what it may read, write, and do) plus a thin UI. The platform enforces the manifest
-        server-side; the <Link className="underline" href="/governance">governance panel</Link> renders it.
+        Pick an app from the sidebar. Access is by role; approvals you owe are in the inbox. Platform owners and auditors use{" "}
+        <Link className="underline" href="/governance">Governance</Link> to see what each app may read, write and do.
       </p>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {apps.map((m) => {

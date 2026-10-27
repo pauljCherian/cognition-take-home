@@ -25,7 +25,7 @@ export default function GovernancePage() {
       {!visible && <div className="rounded border border-amber-200 bg-amber-50 p-2 text-sm text-amber-800">In production this page is limited to <span className="tag-role">auditor</span>/<span className="tag-role">engineer</span>/security. Shown to everyone in the prototype.</div>}
 
       <section className="card space-y-3">
-        <h2>1. Per app: what it can read, write, and do</h2>
+        <h2 id="apps" className="scroll-mt-4">Per app: what it can read, write, and do</h2>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {manifests.map((m) => (
             <div key={m.app} className="rounded border border-neutral-200 p-3 text-sm">
@@ -62,7 +62,7 @@ export default function GovernancePage() {
       </section>
 
       <section className="card space-y-2">
-        <h2>2. Per column (inverted): who can read this field?</h2>
+        <h2 id="columns" className="scroll-mt-4">Per column (inverted): who can read this field?</h2>
         <p className="text-xs text-neutral-500">The access-review question. Columns in the catalog that no app can reach are listed underneath — that is where the sensitive fields should be.</p>
         <table className="data"><thead><tr><th>Resource</th><th>Table.column</th><th>Readable by</th></tr></thead>
           <tbody>{matrix.map((c) => (
@@ -76,7 +76,7 @@ export default function GovernancePage() {
       </section>
 
       <section className="card space-y-2">
-        <h2>3. Per user: effective permissions (quarterly access review export)</h2>
+        <h2 id="users" className="scroll-mt-4">Per user: effective permissions (quarterly access review export)</h2>
         <table className="data"><thead><tr><th>User</th><th>Role (from IdP)</th><th>Apps</th><th>Can act</th><th>Can approve</th><th>Can unmask</th></tr></thead>
           <tbody>{review.map((r) => (
             <tr key={r.user.id}>
@@ -92,18 +92,18 @@ export default function GovernancePage() {
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="card space-y-2">
-          <h2>4. Segregation-of-duties lint</h2>
+          <h2 id="sod" className="scroll-mt-4">Segregation-of-duties lint</h2>
           {sod.length === 0 ? <div className="tag-ok">no findings</div> : sod.map((f, i) => <div key={i} className="text-xs"><span className="tag">{f.app}</span> <span className="font-mono">{f.action}</span>: {f.issue}</div>)}
         </div>
         <div className="card space-y-2">
-          <h2>5. Drift: manifest vs resource catalog</h2>
+          <h2 id="drift" className="scroll-mt-4">Drift: manifest vs resource catalog</h2>
           {drift.length === 0 ? <div className="tag-ok">every declared table/column/endpoint exists in the catalog</div> : drift.map((f, i) => <div key={i} className="text-xs"><span className="tag">{f.app}</span> {f.issue}</div>)}
           <p className="text-xs text-neutral-500">In prod this also compares against live DB grants and the HTTP proxy allowlist.</p>
         </div>
       </section>
 
       <section className="card space-y-2">
-        <h2>6. Denied attempts (live)</h2>
+        <h2 id="denials" className="scroll-mt-4">Denied attempts (live)</h2>
         <p className="text-xs text-neutral-500">Out-of-scope reads, direct connector writes, wrong role, over-limit, self-approval. Proof the enforcement is real.</p>
         <table className="data"><thead><tr><th>At</th><th>App</th><th>Actor</th><th>Kind</th><th>Detail</th></tr></thead>
           <tbody>{denials.map((d) => (
@@ -112,7 +112,7 @@ export default function GovernancePage() {
       </section>
 
       <section className="card space-y-2">
-        <h2>7. Manifest change log</h2>
+        <h2 id="changes" className="scroll-mt-4">Manifest change log</h2>
         <p className="text-xs text-neutral-500">From git. In production a manifest diff is a PR that requires the resource owner and security as reviewers; UI changes do not.</p>
         {history.length === 0 ? <div className="text-sm text-neutral-500">No commits yet.</div> : (
           <table className="data"><thead><tr><th>App</th><th>Commit</th><th>Author</th><th>Date</th><th>Subject</th></tr></thead>
@@ -121,7 +121,7 @@ export default function GovernancePage() {
       </section>
 
       <section className="card space-y-2">
-        <h2>Resource catalog</h2>
+        <h2 id="catalog" className="scroll-mt-4">Resource catalog</h2>
         <p className="text-xs text-neutral-500">What the platform team has connected. Apps may only declare subsets of this.</p>
         {Object.entries(RESOURCE_CATALOG).map(([name, r]) => (
           <div key={name} className="text-xs"><span className="tag">{name}</span> <span className="text-neutral-500">{r.description}</span>
