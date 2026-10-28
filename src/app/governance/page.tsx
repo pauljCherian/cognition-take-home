@@ -26,16 +26,16 @@ export default function GovernancePage() {
 
       <section className="card space-y-3">
         <h2 id="apps" className="scroll-mt-4">Per app: what it can read, write, and do</h2>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
           {manifests.map((m) => (
-            <div key={m.app} className="rounded border border-neutral-200 p-3 text-sm">
+            <div key={m.app} className="min-w-0 overflow-x-auto rounded border border-neutral-200 p-3 text-sm">
               <div className="flex items-center justify-between"><b>{m.title}</b><span className="text-xs text-neutral-500">owner {m.owner}</span></div>
               <div className="mt-1 text-xs">access: {m.roles_with_access.map((r) => <span key={r} className="tag-role mr-1">{r}</span>)}</div>
               <div className="mt-2 font-semibold text-xs uppercase text-neutral-500">Reads</div>
               {Object.entries(m.reads).map(([res, r]) => (
                 <div key={res} className="ml-2">
                   <span className="tag">{res}</span>
-                  {Object.entries(r.tables).map(([t, cols]) => <div key={t} className="ml-3 text-xs"><b>{t}</b>: {cols.map((c) => <span key={c} className={m.pii[`${t}.${c}`] ? "tag-warn mr-1" : "mr-1 font-mono"}>{c}</span>)}</div>)}
+                  {Object.entries(r.tables).map(([t, cols]) => <div key={t} className="ml-3 flex flex-wrap items-baseline gap-x-1 text-xs"><b>{t}</b>: {cols.map((c) => <span key={c} className={m.pii[`${t}.${c}`] ? "tag-warn" : "font-mono"}>{c}</span>)}</div>)}
                   {r.endpoints.map((e) => <div key={e} className="ml-3 font-mono text-xs">{e}</div>)}
                 </div>
               ))}
